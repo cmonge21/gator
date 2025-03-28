@@ -8,6 +8,45 @@ import (
 	"github.com/cmonge21/gator/internal/config"
 )
 
+type State struct {
+	Config *config.Config
+}
+
+type Command struct {
+	Name string
+	Args []string
+}
+
+type Commands struct {
+	Handlers map[string]func(*State, Command) error
+}
+
+func handlerLogin(s *State, cmd Command) error {
+	if len(cmd.Args) == 0 {
+		return fmt.Errorf("username is required")
+	}
+
+	if err := s.Config.SetUser(cmd.Args[0]); err != nil {
+		return err
+	}
+
+	fmt.Printf("User is set to %s\n", cmd.Args[0])
+	return nil
+}
+
+func (c *Commands) Register(name string, f func(*State, Command) error) {
+	c.Handlers[name] = f
+}
+
+func (c *Commands) Run(s *State, cmd Command) error {
+	handler, exists := c.Handlers[cmd.Name]
+	if !exists {
+		return fmt.Errorf("unknwown command: %s", cmd.Name)
+	}
+
+	return handler(s, cmd)
+}
+
 func main() {
 	// Read the config file
 	cfg, err := config.Read()
@@ -17,7 +56,7 @@ func main() {
 
 	// Create a new state with the config
 	state := &State{
-		Config: cfg,
+		Config: &cfg,
 	}
 
 	// Initialize the commands map
